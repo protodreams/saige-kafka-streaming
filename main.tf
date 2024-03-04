@@ -14,8 +14,6 @@ locals {
   name   = "saige-streaming"
   ami = var.streaming_ami
   instance_type = var.streaming_type
-  subnet_A = var.private_subnet_A
-  subnet_B = var.private_subnet_B
   keyname = "saige-streaming"
 }
 
@@ -26,19 +24,19 @@ locals {
 #   }
 # }
 
-data "aws_subnets" "saige_private_subnet_1" {
-  filter {
-    name = "tag:Name"
-    values = ["Private Subnet 1"]
-  }
-}
+# data "aws_subnets" "saige_private_subnet_1" {
+#   filter {
+#     name = "tag:Name"
+#     values = ["Private Subnet 1"]
+#   }
+# }
 
-data "aws_subnets" "saige_private_subnet_2" {
-  filter {
-    name = "tag:Name"
-    values = ["Private Subnet 2"]
-  }
-}
+# data "aws_subnets" "saige_private_subnet_2" {
+#   filter {
+#     name = "tag:Name"
+#     values = ["Private Subnet 2"]
+#   }
+# }
 
 resource "aws_iam_role" "saige_streaming_ssm_role" {
   name = "saige-streaming-ssm-role"
@@ -61,28 +59,6 @@ resource "aws_iam_role_policy_attachment" "streaming_ssm_policy" {
   policy_arn = "arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore"
   role       = aws_iam_role.saige_streaming_ssm_role.name
 }
-
-resource "aws_network_interface" "iac-network-interface_A" { 
-  subnet_id = local.subnet_A
-  security_groups = [aws_security_group.saige_streaming_sg.id]
-  # attachment {
-  #   device_index = 0
-  #   instance = aws_instance.iac-instance[0].id
-  # }
-}
-
-# resource "aws_network_interface" "iac-network-interface_B" { 
-#   subnet_id = local.subnet_B
-#   security_groups = [aws_security_group.saige_streaming_sg.id]
-#     attachment {
-#     device_index = 0
-#     instance = aws_instance.iac-instance[1].id
-#   }
-# }
-
-# output "aws_network_interface"  {
-#   value = data.aws_subnets.saige_vpc_subnet.ids[1]
-# }
 
 data "aws_vpc" "saige_vpc" {
   filter {
@@ -128,44 +104,34 @@ resource "aws_iam_instance_profile" "ssm_instance_profile" {
     role = aws_iam_role.saige_streaming_ssm_role.name
   }
 
-data "aws_ebs_volume" "Kafka_on_the_Beach" {
-  most_recent = true
-  filter {
-    name = "tag:Name"
-    values = ["Kafka on the Beach"]
+locals {
+  snapshot_map = {
+    "us-east-1a" = "snap-074eab5394bf871be"
+    "us-east-1b" = "snap-0808baf1ee79b219e"
+    "us-east-1c" = "snap-02617744ffff5f916"
   }
 }
 
-output "Kafka_on_the_Beach" {
-  value = data.aws_ebs_volume.Kafka_on_the_Beach.id
-}
-
-resource aws_ebs_volume "saige_streaming_A" {
-  availability_zone = "us-east-1a"
+resource aws_ebs_volume "saige_streaming" {
+  for_each = {for idx, name in local.snapshot_map: idx => name}
+  availability_zone = each.key
   size = 50
   type = "gp2"
   encrypted = true
-  snapshot_id = "snap-074eab5394bf871be"
+  snapshot_id = each.value
   tags = {
-    Name = "Saige_Streaming_A"
+    Name = format("Saige-Streaming-%s", each.value)
   }
+}
+
+output "saige_streaming_volume_id" {
+  value = values(aws_ebs_volume.saige_streaming)[0].id
 }
  
-resource aws_ebs_volume "saige_streaming_B" {
-  availability_zone = "us-east-1b"
-  size = 50
-  type = "gp2"
-  encrypted = true
-  snapshot_id = "snap-0808baf1ee79b219e"
-  tags = {
-    Name = "Saige_Streaming_B"
-  }
-}
-
-resource "aws_volume_attachment" "iac-prod" {
+resource "aws_volume_attachment" "saige_streaming" {
   device_name = "/dev/sdf"
-  volume_id   = data.aws_ebs_volume.Kafka_on_the_Beach.id
-  instance_id =  aws_instance.iac-instance[0].id
+  volume_id   = values(aws_ebs_volume.saige_streaming)[0].id
+  instance_id = values(aws_instance.iac_instance)[0].id
   count = var.environment == "prod" ? 1:0
 }
 
@@ -178,13 +144,38 @@ resource "aws_volume_attachment" "iac-prod" {
 #     aws_spot_instance_request.developer-spot
 #   ]
 # }
+resource "aws_network_interface" "iac-network-interface_A" { 
+  subnet_id = var.private_subnet_A
+  security_groups = [aws_security_group.saige_streaming_sg.id]
+  # attachment {
+  #   device_index = 0
+  #   instance = aws_instance.iac_instance[0].id
+  # }
+}
+
+resource "aws_network_interface" "iac-network-interface_B" { 
+  subnet_id = var.private_subnet_B
+  security_groups = [aws_security_group.saige_streaming_sg.id]
+  #   attachment {
+  #   device_index = 0
+  #   instance = aws_instance.iac_instance[1].id
+  # }
+}
+
+data aws_ebs_volumes "saige_streaming" {
+  
+  filter {
+    name = "tag:Name"
+    values = ["Saige_Streaming_*"]
+  }
+}
 
 resource "aws_launch_template" "iac-template" {
   name = "iac-template"
   image_id = local.ami
   instance_type = local.instance_type
   key_name = local.keyname
-  user_data = base64encode(templatefile("${path.module}/init_script.tpl", {}))
+  # user_data = base64encode(templatefile("${path.module}/init_script.tpl", {}))
   iam_instance_profile {
     name = aws_iam_instance_profile.ssm_instance_profile.name
   }
@@ -194,17 +185,30 @@ resource "aws_launch_template" "iac-template" {
   # } 
 }
 
-resource "aws_instance" "iac-instance" {
+data "aws_subnets" "private" {
+  filter {
+    name   = "vpc-id"
+    values = [data.aws_vpc.saige_vpc.id]
+  }
+
+  filter {
+    name   = "tag:Name"
+    values = ["Private*"]
+  }
+}
+
+
+resource "aws_instance" "iac_instance" {
   ami = local.ami
-  count = var.environment == "prod" ? var.server_cnt:0
- 
+  for_each = toset(data.aws_subnets.private.ids)
+  subnet_id = each.key
   launch_template {
     id = aws_launch_template.iac-template.id
     version = "$Latest"
   }
 
    tags = {
-      Name = format("kafka-stream-%d", count.index + 1)
+      Name = format("kafka-stream-%s", each.key)
    }
 }
 
@@ -215,7 +219,7 @@ resource "aws_spot_instance_request" "iac-spot" {
   key_name = local.keyname
   security_groups = [aws_security_group.saige_streaming_sg.id]
   iam_instance_profile = aws_iam_instance_profile.ssm_instance_profile.name
-  subnet_id = local.subnet_A
+  subnet_id = var.private_subnet_A
   count = var.environment == "prod" ? 0:1
   wait_for_fulfillment = true
   user_data = base64encode(templatefile("${path.module}/init_script.tpl", {}))
@@ -229,27 +233,7 @@ resource "aws_ec2_tag" "iac-spot-tag" {
 }
 
 
-# install a bastion host
-resource "aws_instance" "bastion-host" {
-  ami = var.bastion_ami
-  instance_type = var.bastion_type
-  subnet_id = var.public_subnet_A
-  security_groups = [aws_security_group.saige_streaming_sg.id]
-  key_name = "saige-dev"
-  associate_public_ip_address = true
-  # count = var.environment == "bastion" ? 1:0
-   tags = {
-      Name = "Bastion Host"
-  }
-}
 
-output "bastion-host" {
-  value = aws_instance.bastion-host.public_dns
-
-  depends_on = [
-    aws_instance.bastion-host
-  ]
-}
 
 # output "iac-spot" {
 #   value = coalesce(aws_spot_instance_request.iac-spot[*].spot_instance_id)

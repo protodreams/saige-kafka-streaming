@@ -49,17 +49,7 @@ variable "ingress_ports" {
   ]
 }
 
- variable "bastion_type" {
-      description = "The ec2 type for development with a bastion"
-      type = string
-      default = "t2.micro"
- }
- 
-  variable "bastion_ami" {
-     description = "The ami for development with a bastion"
-     type = string
-     default = "ami-0440d3b780d96b29d"
- }
+
 
  variable "private_subnet_A" {
      description = "The subnet for development on private subnet zone A"
@@ -70,7 +60,7 @@ variable "ingress_ports" {
  variable "private_subnet_B" {
      description = "The subnet for development on private subnet zone A"
      type = string
-     default = "subnet-0caeac1fd047ef29b"
+     default = "subnet-0162864dc3f496415"
  }
  
  variable "public_subnet_A" {
@@ -78,6 +68,8 @@ variable "ingress_ports" {
      type = string
      default = "subnet-016653aba3beca3ed"
  }
+
+ 
 
 
 

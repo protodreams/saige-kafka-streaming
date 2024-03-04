@@ -6,7 +6,6 @@ yum  update -y
 # yum install -y util-linux e2fsprogs
 yum install git -y
 
-aws ec2 create-volume --snapshot-id snap-074eab5394bf871be --availability-zone us-east-1a --volume-type gp3 --size 20
 # Wait for the volume to be attached
 while [ ! -e /dev/nvme1n1 ]; do sleep 1; done
 

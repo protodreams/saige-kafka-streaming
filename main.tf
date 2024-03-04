@@ -7,6 +7,9 @@ variable "environment" {
   type        = string
   default     = "dev"
 }
+
+resource "aws_default_vpc" "saige-vpc" {}
+
 locals {
   name   = "saige-streaming"
   ami = var.streaming_ami
@@ -62,16 +65,24 @@ resource "aws_iam_role_policy_attachment" "streaming_ssm_policy" {
 resource "aws_network_interface" "iac-network-interface_A" { 
   subnet_id = local.subnet_A
   security_groups = [aws_security_group.saige_streaming_sg.id]
+  # attachment {
+  #   device_index = 0
+  #   instance = aws_instance.iac-instance[0].id
+  # }
 }
 
-resource "aws_network_interface" "iac-network-interface_B" { 
-  subnet_id = local.subnet_B
-  security_groups = [aws_security_group.saige_streaming_sg.id]
-}
+# resource "aws_network_interface" "iac-network-interface_B" { 
+#   subnet_id = local.subnet_B
+#   security_groups = [aws_security_group.saige_streaming_sg.id]
+#     attachment {
+#     device_index = 0
+#     instance = aws_instance.iac-instance[1].id
+#   }
+# }
 
-output "aws_network_interface"  {
-  value = data.aws_subnets.saige_vpc_subnet.ids[1]
-}
+# output "aws_network_interface"  {
+#   value = data.aws_subnets.saige_vpc_subnet.ids[1]
+# }
 
 data "aws_vpc" "saige_vpc" {
   filter {
@@ -129,11 +140,33 @@ output "Kafka_on_the_Beach" {
   value = data.aws_ebs_volume.Kafka_on_the_Beach.id
 }
 
+resource aws_ebs_volume "saige_streaming_A" {
+  availability_zone = "us-east-1a"
+  size = 50
+  type = "gp2"
+  encrypted = true
+  snapshot_id = "snap-074eab5394bf871be"
+  tags = {
+    Name = "Saige_Streaming_A"
+  }
+}
+ 
+resource aws_ebs_volume "saige_streaming_B" {
+  availability_zone = "us-east-1b"
+  size = 50
+  type = "gp2"
+  encrypted = true
+  snapshot_id = "snap-0808baf1ee79b219e"
+  tags = {
+    Name = "Saige_Streaming_B"
+  }
+}
+
 resource "aws_volume_attachment" "iac-prod" {
   device_name = "/dev/sdf"
   volume_id   = data.aws_ebs_volume.Kafka_on_the_Beach.id
   instance_id =  aws_instance.iac-instance[0].id
-  count = var.environment == "prod" ? 2:0
+  count = var.environment == "prod" ? 1:0
 }
 
 # resource "aws_volume_attachment" "iac-spot" {
@@ -155,16 +188,16 @@ resource "aws_launch_template" "iac-template" {
   iam_instance_profile {
     name = aws_iam_instance_profile.ssm_instance_profile.name
   }
-  network_interfaces {
-    device_index = 0
-    network_interface_id = aws_network_interface.iac-network-interface.id    
-  } 
+  # network_interfaces {
+  #   device_index = 0
+  #   network_interface_id = aws_network_interface.iac-network-interface.id    
+  # } 
 }
 
 resource "aws_instance" "iac-instance" {
   ami = local.ami
   count = var.environment == "prod" ? var.server_cnt:0
-
+ 
   launch_template {
     id = aws_launch_template.iac-template.id
     version = "$Latest"

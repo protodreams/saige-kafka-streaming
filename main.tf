@@ -102,8 +102,8 @@ resource "aws_iam_instance_profile" "ssm_instance_profile" {
 locals {
   snapshot_map = {
     "us-east-1a" = "snap-074eab5394bf871be"
-    "us-east-1b" = "snap-0808baf1ee79b219e"
-    "us-east-1c" = "snap-02617744ffff5f916"
+    "us-east-1b" = "snap-074eab5394bf871be"
+    "us-east-1c" = "snap-074eab5394bf871be"
   }
 }
 
@@ -234,6 +234,7 @@ resource "aws_instance" "iac_instance" {
   ami = local.ami
   for_each = toset(data.aws_subnets.private.ids)
   subnet_id = each.key
+  security_groups = [aws_security_group.saige_streaming_sg.id]
   launch_template {
     id = aws_launch_template.iac-template.id
     version = "$Latest"

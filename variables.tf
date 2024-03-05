@@ -54,22 +54,22 @@ variable "ingress_ports" {
  variable "private_subnet_A" {
      description = "The subnet for development on private subnet zone A"
      type = string
-     default = "subnet-0976668c9e44d658d"
+     default = "subnet-079595242f44b63b3"
  }
 
  variable "private_subnet_B" {
      description = "The subnet for development on private subnet zone A"
      type = string
-     default = "subnet-0162864dc3f496415"
+     default = "subnet-015c0e5606a890cef"
  }
  
  variable "public_subnet_A" {
      description = "The subnet for bastion on public subnet zone A"
      type = string
-     default = "subnet-016653aba3beca3ed"
+     default = "subnet-06f05a3137f77afc6"
  }
 
- 
+
 
 
 

@@ -17,12 +17,7 @@ locals {
   keyname = "saige-streaming"
 }
 
-# data "aws_security_group" "saige_streaming_sg" {
-#   filter {
-#     name = "group-name"
-#     values = ["saige-streaming-sg"]
-#   }
-# }
+
 
 # data "aws_subnets" "saige_private_subnet_1" {
 #   filter {
@@ -127,27 +122,64 @@ resource aws_ebs_volume "saige_streaming" {
 output "saige_streaming_volume_id" {
   value = values(aws_ebs_volume.saige_streaming)[0].id
 }
- 
-resource "aws_volume_attachment" "saige_streaming" {
-  device_name = "/dev/sdf"
-  volume_id   = values(aws_ebs_volume.saige_streaming)[0].id
-  instance_id = values(aws_instance.iac_instance)[0].id
-  count = var.environment == "prod" ? 1:0
+
+# data aws_ebs_volume kafka_volumes {
+#   filter {
+#     name = "tag:Name"
+#     values = ["Saige-Streaming*"]
+#   }
+# }
+
+
+locals {
+  volume_map = {
+    tostring(values(aws_ebs_volume.saige_streaming)[0].availability_zone) = values(aws_ebs_volume.saige_streaming)[0].id
+    tostring(values(aws_ebs_volume.saige_streaming)[1].availability_zone) = values(aws_ebs_volume.saige_streaming)[1].id
+    tostring(values(aws_ebs_volume.saige_streaming)[2].availability_zone) = values(aws_ebs_volume.saige_streaming)[2].id
+  }
 }
 
-# resource "aws_volume_attachment" "iac-spot" {
-#   device_name = "/dev/sdf"
-#   volume_id   = data.aws_ebs_volume.Kafka_on_the_Beach.id
-#   instance_id = aws_spot_instance_request.developer-spot[0].spot_instance_id
-#  count = var.environment == "prod" ? 0:1
-#   depends_on = [
-#     aws_spot_instance_request.developer-spot
-#   ]
-# }
+
+
+locals {
+  instance_map = {
+    values(aws_instance.iac_instance)[0].availability_zone = values(aws_instance.iac_instance)[0].id
+    values(aws_instance.iac_instance)[1].availability_zone = values(aws_instance.iac_instance)[1].id
+    values(aws_instance.iac_instance)[2].availability_zone = values(aws_instance.iac_instance)[2].id
+  }
+}
+
+output local {
+  value = local.volume_map
+}
+
+output check {
+  value = lookup(local.volume_map, "us-east-1b")
+}
+
+output "kafka_volume" {
+  value = values(aws_ebs_volume.saige_streaming)[0].availability_zone
+}
+output "instances" {
+  value = values(aws_instance.iac_instance)[0].availability_zone
+}
+
+resource "aws_volume_attachment" "saige_streaming" {
+  for_each = aws_instance.iac_instance
+  device_name = "/dev/sdf"
+  volume_id = lookup(local.volume_map, tostring(each.value.availability_zone))
+  # volume_id = values(aws_ebs_volume.saige_streaming)[0].id
+  instance_id = each.value.id
+  #lookup(local.instance_map, availability_zone)
+  # instance_id = values(aws_instance.iac_instance)[0].id
+  # count = var.environment == "prod" ? 1:0
+}
+
 resource "aws_network_interface" "iac-network-interface_A" { 
   subnet_id = var.private_subnet_A
   security_groups = [aws_security_group.saige_streaming_sg.id]
   # attachment {
+
   #   device_index = 0
   #   instance = aws_instance.iac_instance[0].id
   # }
@@ -175,7 +207,7 @@ resource "aws_launch_template" "iac-template" {
   image_id = local.ami
   instance_type = local.instance_type
   key_name = local.keyname
-  # user_data = base64encode(templatefile("${path.module}/init_script.tpl", {}))
+  user_data = base64encode(templatefile("${path.module}/init_script.tpl", {}))
   iam_instance_profile {
     name = aws_iam_instance_profile.ssm_instance_profile.name
   }

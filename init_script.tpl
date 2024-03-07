@@ -31,16 +31,15 @@ sh -c "$(wget https://raw.githubusercontent.com/robbyrussell/oh-my-zsh/master/to
 
 echo -e "\nalias ll='ls -la'" >> ~/.zshrc
 
-echo -e "\nexport JAVA_HOME=/mnt/kafka/openjdk" >> ~/.zshrc
+echo -e "\nexport JAVA_HOME=/mnt/kafka/jdk-21.0.2" >> ~/.zshrc
 
-echo -e "\nexport PATH=/mnt/kafka:$PATH" >> ~/.zshrc 
+echo -e "\nexport PATH=/mnt/kafka/kafka_2.13-3.7.0/bin:$PATH" >> ~/.zshrc 
+
+echo -e "\nexport PATH=/mnt/kafka/jdk-21.0.2/bin:$PATH" >> ~/.zshrc 
 
 source ~/.zshrc
 
 zsh ~/.zshrc
-
-sudo yum install -y java-21-amazon-corretto-devel
-
 EOF
 
 # echo "mamba create -n models -y pytorch torchvision torchaudio cudatoolkit=11.8 transformers -c pytorch -c huggingface" > /mnt/caves_of_steel/load_olma.sh

@@ -37,7 +37,6 @@ output "private_subnets" {
   value = data.aws_subnets.private_subnets.ids
 }
 
-
 locals {
   private_subnet_map = [for subnet in data.aws_subnets.private_subnets : {
     subnet_id = subnet
@@ -58,10 +57,6 @@ locals {
   subnet_azs = { for s in data.aws_subnet.private_subnet : s.id => s.availability_zone }
 }
   
-# output "subnet" {
-#   value = data.aws_subnet.private_subnet
-# }
-
 output "subnet_azs" {
   value = local.subnet_azs
 }
@@ -87,7 +82,6 @@ resource "aws_iam_role_policy_attachment" "streaming_ssm_policy" {
   policy_arn = "arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore"
   role       = aws_iam_role.saige_streaming_ssm_role.name
 }
-
 
 resource "aws_security_group" "saige_streaming_sg" {
   name        = "saige-streaming-sg"
@@ -120,7 +114,6 @@ output "saige_streaming_sg_id" {
   value = aws_security_group.saige_streaming_sg.id
 }
 
-
 resource "aws_iam_instance_profile" "ssm_instance_profile" {
     name = "ssm-instance-profile"
     role = aws_iam_role.saige_streaming_ssm_role.name
@@ -128,9 +121,9 @@ resource "aws_iam_instance_profile" "ssm_instance_profile" {
 
 locals {
   snapshot_map = {
-    "us-east-1a" = "snap-074eab5394bf871be"
-    "us-east-1b" = "snap-074eab5394bf871be"
-    "us-east-1c" = "snap-074eab5394bf871be"
+    "us-east-1a" = var.vol_snapshot
+    "us-east-1b" = var.vol_snapshot
+    "us-east-1c" = var.vol_snapshot
   }
 }
 
@@ -150,16 +143,7 @@ output "saige_streaming_volume_id" {
   value = values(aws_ebs_volume.saige_streaming)[0].id
 }
 
-# # data aws_ebs_volume kafka_volumes {
-# #   filter {
-# #     name = "tag:Name"
-# #     values = ["Saige-Streaming*"]
-# #   }
-# # }
-
-
 locals {
-  
   volume_map = {
     tostring(values(aws_ebs_volume.saige_streaming)[0].availability_zone) = values(aws_ebs_volume.saige_streaming)[0].id
     tostring(values(aws_ebs_volume.saige_streaming)[1].availability_zone) = values(aws_ebs_volume.saige_streaming)[1].id
@@ -167,90 +151,18 @@ locals {
   }
 }
 
-# # locals {
-# #   instance_map = {
-# #     values(aws_instance.iac_instance)[0].availability_zone = values(aws_instance.iac_instance)[0].id
-# #     values(aws_instance.iac_instance)[1].availability_zone = values(aws_instance.iac_instance)[1].id
-# #     values(aws_instance.iac_instance)[2].availability_zone = values(aws_instance.iac_instance)[2].id
-# #   }
-# # }
-
-# # output local {
-# #   value = local.volume_map
-# # }
-
-# # output check {
-# #   value = lookup(local.volume_map, "us-east-1b")
-# # }
-
-# # output "kafka_volume" {
-# #   value = values(aws_ebs_volume.saige_streaming)[0].availability_zone
-# # }
-# # output "instances" {
-# #   value = values(aws_instance.iac_instance)[0].availability_zone
-# # }
-
 resource "aws_volume_attachment" "saige_streaming" {
   for_each = aws_spot_instance_request.iac_spot
   device_name = "/dev/sdf"
   volume_id = lookup(local.volume_map, tostring(each.value.availability_zone))
   instance_id = each.value.spot_instance_id
 
-
   depends_on = [
     aws_spot_instance_request.iac_spot
   ]
 }
-
-
-
-# output iac_spot {
-#   value = coalesce(data.aws_spot_instance_request.iac_spot[*].spot_instance_id)
-  
-#   depends_on = [
-#     aws_spot_instance_request.iac_spot
-#   ]
-# }
-
-
-# # resource "aws_volume_attachment" "saige_streaming" {
-# #   for_each = aws_spot_instance_request.iac_spot
-# #   device_name = "/dev/sdf"
-  
-# #   volume_id = lookup(local.volume_map, each.value.availability_zone) 
-# #   # tostring(aws_spot_instance_request.iac_spot.availability_zone))
-# #   instance_id = each.value.id
-# # }
-
-# # resource "aws_network_interface" "iac-network-interface_A" { 
-# #   subnet_id = var.private_subnet_A
-# #   security_groups = [aws_security_group.saige_streaming_sg.id]
-# #   # attachment {
-
-# #   #   device_index = 0
-#    #   instance = aws_instance.iac_instance[0].id
-# #   # }
-# # }
-
-# # resource "aws_network_interface" "iac-network-interface_B" { 
-# #   subnet_id = var.private_subnet_B
-# #   security_groups = [aws_security_group.saige_streaming_sg.id]
-# #   #   attachment {
-# #   #   device_index = 0
-# #   #   instance = aws_instance.iac_instance[1].id
-# #   # }
-# # }
-
-# data aws_ebs_volumes "saige_streaming" {
-  
-#   filter {
-#     name = "tag:Name"
-#     values = ["Saige_Streaming_*"]
-#   }
-# }
-
-resource "aws_launch_template" "iac-template" {
-  name = "iac-template"
+resource "aws_launch_template" "iac_template" {
+  name = "iac_template"
   image_id = local.ami
   instance_type = local.instance_type
   key_name = local.keyname
@@ -258,30 +170,7 @@ resource "aws_launch_template" "iac-template" {
   iam_instance_profile {
     name = aws_iam_instance_profile.ssm_instance_profile.name
   }
-  # network_interfaces {
-  #   device_index = 0
-  #   network_interface_id = aws_network_interface.iac-network-interface.id    
-  # } 
 }
-
-# resource "aws_instance" "iac_instance" {
-#   ami = local.ami
-#   for_each = toset(data.aws_subnets.private.ids)
-#   subnet_id = each.key
-#   security_groups = [aws_security_group.saige_streaming_sg.id]
-#   launch_template {
-#     id = aws_launch_template.iac-template.id
-#     version = "$Latest"
-#   }
-
-#    tags = {
-#       Name = format("kafka-stream-%s", each.key)
-#    }
-# }
-
-# data "aws_availability_zones" "available" {
-#   state = "available"
-# }
 
 resource "aws_spot_instance_request" "iac_spot" {
   spot_price = "0.10"
@@ -298,28 +187,13 @@ resource "aws_spot_instance_request" "iac_spot" {
   user_data = base64encode(templatefile("${path.module}/init_script.tpl", {}))
 } 
 
-resource "aws_ec2_tag" "iac-spot-tag" {
-    
-    # for_each = toset(data.aws_subnets.private.ids)
-    
+resource "aws_ec2_tag" "iac_spot_tag" {
     for_each = aws_spot_instance_request.iac_spot
-    resource_id = aws_spot_instance_request.iac_spot[each.key].id
+    resource_id = each.value.spot_instance_id
     key = "Name"
-    value = format("Spot Streaming {%s}", each.key)
+    value = format("Kafka %s", index(keys(aws_spot_instance_request.iac_spot), each.key) + 1)
 
     depends_on = [
       aws_spot_instance_request.iac_spot
     ]
 }
-
-
-
-
-
-# # output "developer-instance" {
-# #   value = aws_instance.developer-instance[0].id
-
-# #   depends_on = [
-# #     aws_instance.developer-instance
-# #   ]
-# # }

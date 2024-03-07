@@ -1,4 +1,10 @@
  
+variable  vol_snapshot {
+    description = "The snapshot to use for the ec2 instance 1 volume"
+    type = string
+    default = "snap-074eab5394bf871be"
+}
+
  variable server_cnt {
      description = "The number of servers to create"
      type = number
@@ -39,6 +45,11 @@ variable "ingress_ports" {
     {
       from_port   = 9092
       to_port     = 9092
+      protocol    = "tcp"
+    },
+     {
+      from_port   = 9093
+      to_port     = 9093
       protocol    = "tcp"
     },
     {

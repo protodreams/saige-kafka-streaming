@@ -37,32 +37,34 @@ output "private_subnets" {
   value = data.aws_subnets.private_subnets.ids
 }
 
-data "aws_subnet" "private_subnet" {
-  for_each = toset(data.aws_subnets.private_subnets.id)
-  id = each.value
-}
 
 locals {
-  private_subnet_map = {
-    for subnet in data.aws_subnets.private_subnets.ids :
-    subnet => tostring(data.aws_subnet.private_subnet[subnet].availability_zone)
-  }
+  private_subnet_map = [for subnet in data.aws_subnets.private_subnets : {
+    subnet_id = subnet
+  }]
 }
 
 output "private_subnet_map" {
   value = local.private_subnet_map
 }
 
-# # resource "aws_subnet" "private_subnet" {
-# #   vpc_id     = aws_default_vpc.saige-vpc.id
-# #    for_each = {
-# #     for s in data.aws_subnets.private_subnets: "${s.id}" => s
-# #    }
+data "aws_subnet" "private_subnet" {
+  vpc_id     = data.aws_vpc.saige_vpc.id
+  for_each = toset(data.aws_subnets.private_subnets.ids)
+  id = each.value
+} 
+
+locals {
+  subnet_azs = { for s in data.aws_subnet.private_subnet : s.id => s.availability_zone }
+}
   
-# #     availability_zone = each.value.availability_zone 
-   
-# # } 
-  
+output "subnet" {
+  value = data.aws_subnet.private_subnet
+}
+
+output "subnet_azs" {
+  value = local.subnet_azs
+}
 
 # resource "aws_iam_role" "saige_streaming_ssm_role" {
 #   name = "saige-streaming-ssm-role"

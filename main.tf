@@ -190,16 +190,28 @@ locals {
 # #   value = values(aws_instance.iac_instance)[0].availability_zone
 # # }
 
-# # resource "aws_volume_attachment" "saige_streaming" {
-# #   for_each = aws_instance.iac_instance
-# #   device_name = "/dev/sdf"
-# #   volume_id = lookup(local.volume_map, tostring(each.value.availability_zone))
-# #   instance_id = each.value.id
-# # }
+resource "aws_volume_attachment" "saige_streaming" {
+  for_each = aws_spot_instance_request.iac_spot
+  device_name = "/dev/sdf"
+  volume_id = lookup(local.volume_map, tostring(each.value.availability_zone))
+  instance_id = each.value.spot_instance_id
 
-# output "saige_streaming_volume" {
-#   value = aws_spot_instance_request.iac_spot
+
+  depends_on = [
+    aws_spot_instance_request.iac_spot
+  ]
+}
+
+
+
+# output iac_spot {
+#   value = coalesce(data.aws_spot_instance_request.iac_spot[*].spot_instance_id)
+  
+#   depends_on = [
+#     aws_spot_instance_request.iac_spot
+#   ]
 # }
+
 
 # # resource "aws_volume_attachment" "saige_streaming" {
 # #   for_each = aws_spot_instance_request.iac_spot
@@ -294,18 +306,15 @@ resource "aws_ec2_tag" "iac-spot-tag" {
     resource_id = aws_spot_instance_request.iac_spot[each.key].id
     key = "Name"
     value = format("Spot Streaming {%s}", each.key)
+
+    depends_on = [
+      aws_spot_instance_request.iac_spot
+    ]
 }
 
 
 
 
-# # output "iac-spot" {
-# #   value = coalesce(aws_spot_instance_request.iac-spot[*].spot_instance_id)
-  
-# #   depends_on = [
-# #     aws_spot_instance_request.iac-spot
-# #   ]
-# # }
 
 # # output "developer-instance" {
 # #   value = aws_instance.developer-instance[0].id

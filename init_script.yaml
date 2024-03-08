@@ -1,0 +1,30 @@
+#cloud-config
+
+# Enable and start the amazon-ssm-agent service
+runcmd:
+  - [ sudo systemctl enable amazon-ssm-agent ]
+  - [ sudo systemctl start amazon-ssm-agent ]
+
+packages:
+  - yum:
+      - zsh
+      - util-linux-user
+
+# Script to be run by ec2-user after packages are installed
+# (place this script content in a separate file on your EBS volume)
+user:
+    name: ec2-user
+    shell: /bin/bash  # Keep the default shell for now (avoid zsh issues during script execution)
+    command: |
+        # Replace with the path to your script on the EBS volume
+        /mnt/kafka/user_setup.sh
+
+**user_setup.sh** (Place this script on your EBS volume):
+
+#!/bin/bash
+
+# Fix missing semicolon
+file -s $kafka_vol | grep -q ext4 || mkfs.ext4 $kafka_vol  # Added semicolon
+
+# ... Rest of your script content for mounting, configuring environment variables, etc. ...
+

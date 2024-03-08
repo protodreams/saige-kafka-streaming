@@ -2,6 +2,7 @@
 sudo systemctl enable amazon-ssm-agent
 sudo systemctl start amazon-ssm-agent
     
+
 yum  update -y
 # yum install -y util-linux e2fsprogs
 yum install git -y
@@ -23,9 +24,20 @@ chown ec2-user:ec2-user /mnt/kafka
               
 sudo -u ec2-user  bash <<'EOF'
 # install zsh 
-sudo yum install -y zsh 
-sudo yum install -y util-linux-user
-sudo chsh -s /usr/bin/zsh ec2-user
+runcmd:
+    - [sudo yum install -y zsh]
+    
+wait:
+  - "!/bin/bash [ ! -e /var/lib/rpm/.rpm.lock ]"
+
+runcmd:
+    - [sudo yum install -y util-linux-user]
+
+ wait:
+  - "!/bin/bash [ ! -e /var/lib/rpm/.rpm.lock ]"   
+
+runcmd:
+    - [sudo chsh -s /usr/bin/zsh ec2-user]
 
 sh -c "$(wget https://raw.githubusercontent.com/robbyrussell/oh-my-zsh/master/tools/install.sh -O -)"
 

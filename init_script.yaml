@@ -2,29 +2,35 @@
 
 # Enable and start the amazon-ssm-agent service
 runcmd:
-  - [ sudo systemctl enable amazon-ssm-agent ]
-  - [ sudo systemctl start amazon-ssm-agent ]
+  - systemctl enable amazon-ssm-agent 
+  - systemctl start amazon-ssm-agent 
 
 packages:
   - yum:
-      - zsh
-      - util-linux-user
+    - zsh
+    - util-linux-user
 
 # Script to be run by ec2-user after packages are installed
-# (place this script content in a separate file on your EBS volume)
 user:
-    name: ec2-user
-    shell: /bin/bash  # Keep the default shell for now (avoid zsh issues during script execution)
-    command: |
-        # Replace with the path to your script on the EBS volume
-        /mnt/kafka/user_setup.sh
+  name: ec2-user
+  shell: /bin/bash  # Keep the default shell for now (avoid zsh issues during script execution)
+  command: |
+    # Mount the EBS volume (assuming device name is /dev/nvme1n1)
+    file -s /dev/nvme1n1 | grep -q ext4 || mkfs.ext4 /dev/nvme1n1
 
-**user_setup.sh** (Place this script on your EBS volume):
+    # Create a mount point
+    mkdir /mnt/kafka
 
-#!/bin/bash
+    # Mount the volume with more secure options (consider adjusting based on your needs)
+    mount -o noexec,defaults /dev/nvme1n1 /mnt/kafka
 
-# Fix missing semicolon
-file -s $kafka_vol | grep -q ext4 || mkfs.ext4 $kafka_vol  # Added semicolon
+    # Change ownership of the mount point
+    chown ec2-user:ec2-user /mnt/kafka
 
-# ... Rest of your script content for mounting, configuring environment variables, etc. ...
+    # Add an entry to /etc/fstab for persistence (consider using a more restrictive option than defaults)
+    echo "/dev/nvme1n1 /mnt/kafka ext4 noexec,defaults 0 2" >> /etc/fstab
+
+    /mnt/kafka/user_setup.sh
+
+
 

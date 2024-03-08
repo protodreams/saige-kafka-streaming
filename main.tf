@@ -166,7 +166,7 @@ resource "aws_launch_template" "iac_template" {
   image_id = local.ami
   instance_type = local.instance_type
   key_name = local.keyname
-  user_data = base64encode(templatefile("${path.module}/init_script.tpl", {}))
+  user_data = base64encode(templatefile("${path.module}/init_script.yaml", {}))
   iam_instance_profile {
     name = aws_iam_instance_profile.ssm_instance_profile.name
   }
